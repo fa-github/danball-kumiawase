@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>シャンパン梱包時のみにしか存在意義のないアプリ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 text-gray-800 font-sans pb-20">
+  <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden border-2 border-gray-800">
+    <div class="bg-gray-800 text-white p-4 text-center font-bold text-lg">
+      シャンパン梱包時のみに<br>しか存在意義のないアプリ
+    </div>
+    <div class="p-6 space-y-6">
+      <div>
+        <label class="block font-bold mb-2">📦 出荷総本数</label>
+        <input type="number" id="totalBottles" class="w-full text-3xl p-3 border-2 border-gray-300 rounded-lg text-center font-black" placeholder="0">
+      </div>
+
+      <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+        <label class="block font-bold text-blue-800 mb-2">12本箱のルール</label>
+        <div class="flex items-center justify-between space-x-2">
+          <input type="number" id="min12" value="10" class="w-20 p-2 border-2 border-gray-300 rounded text-center text-xl font-bold">
+          <span class="font-bold">〜</span>
+          <input type="number" id="max12" value="12" class="w-20 p-2 border-2 border-gray-300 rounded text-center text-xl font-bold">
+          <span class="font-bold">本</span>
+        </div>
+      </div>
+
+      <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+        <label class="block font-bold text-green-800 mb-2">6本箱のルール</label>
+        <div class="flex items-center justify-between space-x-2">
+          <input type="number" id="min6" value="4" class="w-20 p-2 border-2 border-gray-300 rounded text-center text-xl font-bold">
+          <span class="font-bold">〜</span>
+          <input type="number" id="max6" value="6" class="w-20 p-2 border-2 border-gray-300 rounded text-center text-xl font-bold">
+          <span class="font-bold">本</span>
+        </div>
+      </div>
+
+      <button onclick="calculate()" class="w-full bg-gray-800 text-white font-bold py-4 rounded-lg text-xl shadow-lg active:bg-gray-700 transition">
+        計算する
+      </button>
+
+      <div id="result" class="hidden mt-6 p-4 border-2 border-gray-800 rounded-lg bg-yellow-50 min-h-[100px]">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function calculate() {
+      const total = parseInt(document.getElementById('totalBottles').value);
+      const min12 = parseInt(document.getElementById('min12').value);
+      const max12 = parseInt(document.getElementById('max12').value);
+      const min6 = parseInt(document.getElementById('min6').value);
+      const max6 = parseInt(document.getElementById('max6').value);
+      const resultDiv = document.getElementById('result');
+
+      if (!total || total <= 0) {
+        resultDiv.innerHTML = '<p class="text-red-600 font-bold">本数を入力してください。</p>';
+        resultDiv.classList.remove('hidden');
+        return;
+      }
+
+      let bestCombo = null;
+      let minBoxes = Infinity;
+
+      const maxPossible12 = Math.ceil(total / min12) + 1;
+      const maxPossible6 = Math.ceil(total / min6) + 1;
+
+      for (let n12 = 0; n12 <= maxPossible12; n12++) {
+        for (let n6 = 0; n6 <= maxPossible6; n6++) {
+          const minCapacity = n12 * min12 + n6 * min6;
+          const maxCapacity = n12 * max12 + n6 * max6;
+
+          if (total >= minCapacity && total <= maxCapacity) {
+            const totalBoxes = n12 + n6;
+            if (totalBoxes < minBoxes || (totalBoxes === minBoxes && (!bestCombo || n12 > bestCombo.n12))) {
+              minBoxes = totalBoxes;
+              bestCombo = { n12, n6 };
+            }
+          }
+        }
+      }
+
+      if (!bestCombo) {
+        resultDiv.innerHTML = '<p class="text-red-600 font-bold">指定ルールの範囲内で梱包できる組み合わせが見つかりません。</p>';
+        resultDiv.classList.remove('hidden');
+        return;
+      }
+
+      let remaining = total;
+      let breakdownHTML = '';
+      let boxCount = 1;
+
+      for (let i = 0; i < bestCombo.n12; i++) {
+        const remainingBoxesMinCap = (bestCombo.n12 - 1 - i) * min12 + bestCombo.n6 * min6;
+        let fill = Math.min(max12, remaining);
+        if (remaining - fill < remainingBoxesMinCap) fill = remaining - remainingBoxesMinCap;
+        remaining -= fill;
+        breakdownHTML += `<div class="flex justify-between items-center border-b border-gray-300 py-3"><span class="text-lg font-bold">📦 ${boxCount}箱目 (12本用)</span><span class="text-blue-600 text-3xl font-black">${fill}<span class="text-lg text-gray-800"> 本</span></span></div>`;
+        boxCount++;
+      }
+
+      for (let i = 0; i < bestCombo.n6; i++) {
+        const remainingBoxesMinCap = (bestCombo.n6 - 1 - i) * min6;
+        let fill = Math.min(max6, remaining);
+        if (remaining - fill < remainingBoxesMinCap) fill = remaining - remainingBoxesMinCap;
+        remaining -= fill;
+        breakdownHTML += `<div class="flex justify-between items-center border-b border-gray-300 py-3"><span class="text-lg font-bold">📦 ${boxCount}箱目 (6本用)</span><span class="text-green-600 text-3xl font-black">${fill}<span class="text-lg text-gray-800"> 本</span></span></div>`;
+        boxCount++;
+      }
+
+      resultDiv.innerHTML = `
+        <div class="mb-4">
+          <span class="block text-sm text-gray-600 font-bold mb-1">ベストな組み合わせ</span>
+          <span class="text-2xl font-black">合計: ${minBoxes}箱</span>
+          <span class="text-sm font-bold text-gray-600 ml-2">（12本用×${bestCombo.n12} / 6本用×${bestCombo.n6}）</span>
+        </div>
+        ${breakdownHTML}
+      `;
+      resultDiv.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
